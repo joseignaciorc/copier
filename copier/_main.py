@@ -1073,7 +1073,7 @@ class Worker:
                 f"'{{{{ _copier_conf.answers_file }}}}' file to your template "
                 "with the content '{{ _copier_answers|to_nice_yaml }}'.",
                 MissingAnswersFileWarning,
-                stacklevel=9,
+                stacklevel=2,
             )
 
     # Main operations
