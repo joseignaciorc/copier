@@ -72,6 +72,7 @@ from .errors import (
     ExtensionNotFoundError,
     ForbiddenPathError,
     InteractiveSessionError,
+    MissingAnswersFileWarning,
     TaskError,
     UnsafeTemplateError,
     UserMessageError,
@@ -1059,6 +1060,22 @@ class Worker:
         subdir = self._render_string(self.template.subdirectory) or ""
         return self.template.local_abspath / subdir
 
+    def _warn_missing_answers_file(self) -> None:
+        """Warn if the template has questions but no answers file was generated."""
+        if (
+            not self.pretend
+            and self.template.questions_data
+            and not (self.subproject.local_abspath / self.answers_relpath).exists()
+        ):
+            warnings.warn(
+                "Template has questions but does not generate an answers file. "
+                "To make your template updatable, add a "
+                f"'{{{{ _copier_conf.answers_file }}}}' file to your template "
+                "with the content '{{ _copier_answers|to_nice_yaml }}'.",
+                MissingAnswersFileWarning,
+                stacklevel=2,
+            )
+
     # Main operations
     @as_operation("copy")
     def run_copy(self) -> None:
@@ -1090,6 +1107,7 @@ class Worker:
                 )
             with Phase.use(Phase.RENDER):
                 self._render_template()
+            self._warn_missing_answers_file()
             if not self.quiet:
                 # TODO Unify printing tools
                 print("")  # padding space

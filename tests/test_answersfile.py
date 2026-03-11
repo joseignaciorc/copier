@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from textwrap import dedent
 
@@ -8,6 +9,7 @@ import pytest
 import yaml
 
 import copier
+import copier.errors
 from copier._user_data import load_answersfile_data
 
 from .helpers import BRACKET_ENVOPS_JSON, SUFFIX_TMPL, build_file_tree, git_save
@@ -328,3 +330,70 @@ def test_undefined_phase_in_external_data(
     copier.run_copy(str(src), dst, defaults=True, overwrite=True)
     answers = load_answersfile_data(dst, ".copier-answers.yml")
     assert answers["key"] == "value"
+
+
+def test_warning_when_questions_but_no_answers_file(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """Warn when a template has questions but doesn't generate an answers file."""
+    src, dst = map(tmp_path_factory.mktemp, ("src", "dst"))
+    build_file_tree(
+        {
+            (src / "copier.yml"): (
+                """\
+                your_name:
+                    type: str
+                    default: world
+                """
+            ),
+            (src / "hello.txt.jinja"): "Hello {{ your_name }}!",
+        }
+    )
+    with pytest.warns(
+        copier.errors.MissingAnswersFileWarning,
+        match="Template has questions but does not generate an answers file",
+    ):
+        copier.run_copy(str(src), dst, defaults=True, overwrite=True)
+    assert not (dst / ".copier-answers.yml").exists()
+
+
+def test_no_warning_when_questions_and_answers_file(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """No warning when a template has questions and generates an answers file."""
+    src, dst = map(tmp_path_factory.mktemp, ("src", "dst"))
+    build_file_tree(
+        {
+            (src / "copier.yml"): (
+                """\
+                your_name:
+                    type: str
+                    default: world
+                """
+            ),
+            (src / "{{ _copier_conf.answers_file }}.jinja"): (
+                "{{ _copier_answers|to_nice_yaml }}"
+            ),
+            (src / "hello.txt.jinja"): "Hello {{ your_name }}!",
+        }
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", copier.errors.MissingAnswersFileWarning)
+        copier.run_copy(str(src), dst, defaults=True, overwrite=True)
+    assert (dst / ".copier-answers.yml").exists()
+
+
+def test_no_warning_when_no_questions(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """No warning when a template has no questions."""
+    src, dst = map(tmp_path_factory.mktemp, ("src", "dst"))
+    build_file_tree(
+        {
+            (src / "copier.yml"): "",
+            (src / "hello.txt"): "Hello world!",
+        }
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", copier.errors.MissingAnswersFileWarning)
+        copier.run_copy(str(src), dst, defaults=True, overwrite=True)
