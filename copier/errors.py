@@ -47,6 +47,7 @@ __all__ = [
     "ShallowCloneWarning",
     "MissingSettingsWarning",
     "MissingFileWarning",
+    "MissingAnswersFileWarning",
     "InteractiveSessionError",
 ]
 
@@ -229,6 +230,10 @@ class MissingSettingsWarning(UserWarning, CopierWarning):
 
 class MissingFileWarning(UserWarning, CopierWarning):
     """I still couldn't find what I'm looking for."""
+
+
+class MissingAnswersFileWarning(UserWarning, CopierWarning):
+    """Template has questions but no answers file was created."""
 
 
 class InteractiveSessionError(UserMessageError):
